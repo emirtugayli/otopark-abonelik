@@ -28,6 +28,7 @@ export default function SubscribersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>("ALL");
+  const [search, setSearch] = useState("");
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Subscriber | null>(null);
@@ -129,9 +130,23 @@ export default function SubscribersPage() {
   }
 
   const filtered = useMemo(() => {
-    if (filter === "ALL") return subscribers;
-    return subscribers.filter((s) => s.vehicle_type === filter);
-  }, [subscribers, filter]);
+    let list = subscribers;
+    if (filter !== "ALL") list = list.filter((s) => s.vehicle_type === filter);
+
+    const q = search.trim();
+    if (!q) return list;
+
+    const qLower = q.toLocaleLowerCase("tr");
+    const qDigits = q.replace(/\D/g, "");
+    const qPlate = q.replace(/\s+/g, "").toLocaleUpperCase("tr");
+
+    return list.filter((s) => {
+      if (s.full_name.toLocaleLowerCase("tr").includes(qLower)) return true;
+      if (s.plate_number.replace(/\s+/g, "").toLocaleUpperCase("tr").includes(qPlate)) return true;
+      if (qDigits && s.phone && s.phone.replace(/\D/g, "").includes(qDigits)) return true;
+      return false;
+    });
+  }, [subscribers, filter, search]);
 
   const counts = useMemo(() => {
     return {
@@ -153,6 +168,26 @@ export default function SubscribersPage() {
         </button>
       </div>
 
+      <div className="relative">
+        <input
+          type="search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="🔍 İsim, plaka veya telefonla ara..."
+          className="block w-full rounded-xl border-2 border-slate-200 bg-white px-4 py-3 pr-12 text-base focus:border-emerald-500 focus:outline-none"
+        />
+        {search && (
+          <button
+            type="button"
+            onClick={() => setSearch("")}
+            aria-label="Aramayı temizle"
+            className="absolute inset-y-0 right-0 flex items-center px-4 text-lg text-slate-400 hover:text-slate-600"
+          >
+            ✕
+          </button>
+        )}
+      </div>
+
       <div className="flex flex-wrap gap-2">
         <FilterBtn label={`Tümü (${counts.ALL})`} active={filter === "ALL"} onClick={() => setFilter("ALL")} />
         <FilterBtn label={`🚗 Otomobil (${counts.OTOMOBIL})`} active={filter === "OTOMOBIL"} onClick={() => setFilter("OTOMOBIL")} />
@@ -171,7 +206,7 @@ export default function SubscribersPage() {
         <div className="space-y-3">
           {filtered.length === 0 && (
             <div className="rounded-2xl border-2 border-slate-200 bg-white p-6 text-center text-base text-slate-500">
-              Bu listede abone yok.
+              {search.trim() ? "Aramaya uyan abone bulunamadı." : "Bu listede abone yok."}
             </div>
           )}
           {filtered.map((sub) => (
